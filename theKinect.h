@@ -8,9 +8,6 @@ public:
 	c_theKinect();
 	bool GetAndShowDepthData();
 	bool GetAndShowColorData();
-	bool GetAndShowBoyIndexData();
-	bool GetAndShowBoyData();
-	bool GetAndDealHandImg();
 	~c_theKinect();
 private:
 	IKinectSensor* m_pKinectSensor;  // 获取Kinect设备
@@ -25,12 +22,6 @@ private:
 	IFrameDescription* colorFrameDescription;
 	int nColorWidth;
 	int nColorHeight;
-
-	IBodyIndexFrameSource* pBodyIndexFrameSource;//获得身体信息传感器
-	IBodyIndexFrameReader* pBodyIndexFrameReader;//打开身体信息帧读取器
-
-	IBodyFrameSource* pBodyFrameSource;//获得骨骼信息传感器
-	IBodyFrameReader* pBodyFrameReader;//打开骨骼信息帧读取器
 
 	ICoordinateMapper* coordinateMapper;//坐标数据转换指针
 

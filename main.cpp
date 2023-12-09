@@ -6,36 +6,15 @@
 #include "main.h"
 #include "theKinect.h"
 
-Mat initgraph(Mat input)
-{
-
-
-	int M = input.rows;
-	int N = input.cols;
-
-	int W = 16;
-	int H = 16;
-
-	for (size_t i = 0; i < M/H; i++)
-	{
-		for (size_t j = 0; j < N/W; j++)
-		{
-			
-			int k = (i)*H;
-		}
-	}
-}
-
-bool rejectedge
 
 int main()
 {
     c_theKinect kinect;
-    std::cout << "Hello World!\n";
 	while (true)
 	{
 		kinect.GetAndShowDepthData();
 	}
+	return 0;
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
