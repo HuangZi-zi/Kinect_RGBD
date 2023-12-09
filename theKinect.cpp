@@ -70,20 +70,21 @@ bool c_theKinect::GetAndShowDepthData()
 		if (SUCCEEDED(hr))
 			hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, reinterpret_cast<UINT16*>(MatDepth16.data));
 		
-		UINT16* depthData = new UINT16[512 * 424];
-		hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, depthData);
-		for (int i = 0; i < nDepthHeight * nDepthWidth; i++) {
-			BYTE intensity = static_cast<BYTE>(depthData[i] / 256);
-			reinterpret_cast<BYTE*>(MatDepth8.data)[i] = intensity;
+		//UINT16* depthData = new UINT16[512 * 424];
+		//hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, depthData);
+		for (int i = 0; i < 2*nDepthHeight * nDepthWidth; i++) {
+			//BYTE intensity = static_cast<BYTE>(depthData[i] / 256);
+			//reinterpret_cast<BYTE*>(MatDepth8.data)[i] = intensity;
+			MatDepth16.data[i]=MatDepth16.data[i] << 4; //只有12bit是有有效的
 		}
-		equalizeHist(MatDepth8, MatDepth8);
-		equalizeHist(MatDepth16, MatDepth16);
-		imshow("MatDepth8", MatDepth8);
+		//equalizeHist(MatDepth8, MatDepth8);
+		//equalizeHist(MatDepth16, MatDepth16);
+		//imshow("MatDepth8", MatDepth8);
 		imshow("MatDepth16", MatDepth16);
 		pDepthFrame->Release();
 		if (waitKey(1) == VK_ESCAPE)
 			return false;
-		delete[] depthData;
+		//delete[] depthData;
 		return true;
 	
 }

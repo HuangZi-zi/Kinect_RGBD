@@ -1,21 +1,21 @@
 ﻿  theKinect.cpp
 C:\Users\YawnFun\Documents\opencv\build\include\opencv2\objdetect\aruco_board.hpp(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(177,26): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
+C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(178,26): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=int
           ]
-C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(177,20): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
+C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(178,20): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=int
           ]
-C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(177,45): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
+C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(178,45): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=int
           ]
-C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(177,39): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
+C:\Users\YawnFun\Documents\project\Kinect_RGBD\theKinect.cpp(178,39): warning C4244: 'argument': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=int
