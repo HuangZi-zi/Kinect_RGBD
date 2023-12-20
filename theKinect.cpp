@@ -74,15 +74,17 @@ bool c_theKinect::GetAndShowDepthData()
 		
 		UINT16* depthData = new UINT16[512 * 424];
 		hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, depthData);
-		for (int i = 0; i < nDepthHeight * nDepthWidth; i++) { //16bit图要*2
-			BYTE intensity = static_cast<BYTE>(depthData[i] / 16);
-			reinterpret_cast<BYTE*>(MatDepth8.data)[i] = intensity;
-			//MatDepth16.data[i]=MatDepth16.data[i] * 8 ; //只有12bit是有有效的
+		for (int i = 0; i < nDepthHeight * nDepthWidth; i++) {
+			//BYTE intensity = static_cast<BYTE>(depthData[i] / 16);
+			//reinterpret_cast<BYTE*>(MatDepth8.data)[i] = intensity;
+			
+			UINT16 intensity = static_cast<UINT16>(depthData[i] * 16);//只有12bit是有有效的
+			reinterpret_cast<UINT16*>(MatDepth16.data)[i] = intensity;
 		}
 		//equalizeHist(MatDepth8, MatDepth8);
 		//equalizeHist(MatDepth16, MatDepth16);
-		imshow("MatDepth8", MatDepth8);
-		//imshow("MatDepth16", MatDepth16);
+		//imshow("MatDepth8", MatDepth8);
+		imshow("MatDepth16", MatDepth16);
 
 		if (key!=-1)
 		{
