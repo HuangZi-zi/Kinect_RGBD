@@ -1,6 +1,7 @@
 #include "theKinect.h"
 #include <vector>
 #include "main.h"
+#include "conio.h"
 
 c_theKinect::c_theKinect():
 	m_pKinectSensor(NULL),
@@ -45,6 +46,7 @@ c_theKinect::c_theKinect():
 
 bool c_theKinect::GetAndShowDepthData()
 {
+	int key = cv::waitKey(1);
 	IDepthFrame* pDepthFrame = NULL;//深度信息数据
 	//cout << "Waiting\n" << endl;
 	while (pDepthFrame == NULL)
@@ -67,24 +69,33 @@ bool c_theKinect::GetAndShowDepthData()
 			hr = depthFrameDescription->get_Height(&nDepthHeight);
 		}
 
-		if (SUCCEEDED(hr))
-			hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, reinterpret_cast<UINT16*>(MatDepth16.data));
+		//if (SUCCEEDED(hr))
+		//	hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, reinterpret_cast<UINT16*>(MatDepth16.data));
 		
-		//UINT16* depthData = new UINT16[512 * 424];
-		//hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, depthData);
-		for (int i = 0; i < 2*nDepthHeight * nDepthWidth; i++) {
-			//BYTE intensity = static_cast<BYTE>(depthData[i] / 256);
-			//reinterpret_cast<BYTE*>(MatDepth8.data)[i] = intensity;
-			MatDepth16.data[i]=MatDepth16.data[i] << 4; //只有12bit是有有效的
+		UINT16* depthData = new UINT16[512 * 424];
+		hr = pDepthFrame->CopyFrameDataToArray(nDepthHeight * nDepthWidth, depthData);
+		for (int i = 0; i < nDepthHeight * nDepthWidth; i++) { //16bit图要*2
+			BYTE intensity = static_cast<BYTE>(depthData[i] / 16);
+			reinterpret_cast<BYTE*>(MatDepth8.data)[i] = intensity;
+			//MatDepth16.data[i]=MatDepth16.data[i] * 8 ; //只有12bit是有有效的
 		}
 		//equalizeHist(MatDepth8, MatDepth8);
 		//equalizeHist(MatDepth16, MatDepth16);
-		//imshow("MatDepth8", MatDepth8);
-		imshow("MatDepth16", MatDepth16);
+		imshow("MatDepth8", MatDepth8);
+		//imshow("MatDepth16", MatDepth16);
+
+		if (key!=-1)
+		{
+			std::string filename = "C:/Users/YawnFun/Pictures/Camera Roll/snapshot_" + std::to_string(time(nullptr)) + ".png";
+			// Save the depth image
+			cv::imwrite(filename, MatDepth8);
+			cout << "snapshot" << endl;
+			key = false;
+		}
 		pDepthFrame->Release();
 		if (waitKey(1) == VK_ESCAPE)
 			return false;
-		//delete[] depthData;
+		delete[] depthData;
 		return true;
 	
 }
