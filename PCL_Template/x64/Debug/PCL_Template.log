@@ -1,0 +1,8 @@
+﻿  PCL_Template.cpp
+C:\dev\vcpkg\installed\x64-windows\include\Eigen\src\Core\arch\Default\Half.h(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+C:\dev\vcpkg\installed\x64-windows\include\Eigen\src\Core\arch\Default\BFloat16.h(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+C:\dev\vcpkg\installed\x64-windows\include\Eigen\src\Core\arch\Default\GenericPacketMathFunctions.h(676,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+C:\Users\YawnFun\Documents\opencv\build\include\opencv2\objdetect\aruco_board.hpp(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+C:\dev\vcpkg\installed\x64-windows\include\pcl\visualization\interactor_style.h(1,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+C:\dev\vcpkg\installed\x64-windows\include\pcl\visualization\pcl_visualizer.h(1605,1): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+  PCL_Template.vcxproj -> C:\Users\YawnFun\Documents\project\Kinect_RGBD\x64\Debug\PCL_Template.exe
