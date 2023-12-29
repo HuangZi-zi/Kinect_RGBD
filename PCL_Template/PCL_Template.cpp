@@ -10,6 +10,7 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/common/transforms.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
 HRESULT resultc;
 HRESULT resultd;
@@ -40,6 +41,8 @@ cv::Mat depthRGB;
 
 //点云输出
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
+pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>);
 
 void initKinect() {
     //获取Kinect
@@ -106,13 +109,13 @@ int  main(int argc, char** argv)
 			depthFrame->CopyFrameDataToArray(424 * 512, depthData);
 			depthFrame->CopyFrameDataToArray(depthHeight * depthWidth, (UINT16*)temp.data); //先把数据存入16位的图像矩阵
 			temp.convertTo(depth_img, CV_8UC1, 255.0 / 4500);   //再把16位转换为8位
-			imshow("Depth", depth_img);
+			//imshow("Depth", depth_img);
 			depthFrame->Release();
 		}
 		//获取RGB图
 		if (colorReader->AcquireLatestFrame(&colorFrame) == S_OK) {
 			colorFrame->CopyConvertedFrameDataToArray(colorHeight * colorWidth * 4, (BYTE*)color_img.data, ColorImageFormat::ColorImageFormat_Bgra);	//获取彩色图
-			imshow("RGB", color_img);
+			//imshow("RGB", color_img);
 			colorFrame->Release();
 		}
 		cv::flip(color_img, color_flip, 1);	//图片翻转
@@ -169,6 +172,7 @@ int  main(int argc, char** argv)
 				}
 			}
 		}
+
 		//点云可视化
 		if (cloud->points.size() != 0) {
 			viewer->removeAllPointClouds();
@@ -177,6 +181,42 @@ int  main(int argc, char** argv)
 			viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.25, "origin_cloud");  //设置点尺寸
 		}
 		viewer->spinOnce();
+
+		//将XYZRGB转成XYZ
+		int M = cloud->points.size();
+
+		for (int i = 0; i < M; i++)
+		{
+			
+			cloud_xyz->points[i].x = cloud->points[i].x;
+			cloud_xyz->points[i].y = cloud->points[i].y;
+			cloud_xyz->points[i].z = cloud->points[i].z;
+			//cloud_xyz->points.push_back(cloud);
+		}
+
+		// 创建滤波器，对每个点分析的临近点的个数设置为50 ，并将标准差的倍数设置为1  这意味着如果一
+		//个点的距离超出了平均距离一个标准差以上，则该点被标记为离群点，并将它移除，存储起来
+		pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;   //创建滤波器对象
+		sor.setInputCloud(cloud_xyz);                           //设置待滤波的点云
+		sor.setMeanK(50);                               //设置在进行统计时考虑查询点临近点数
+		sor.setStddevMulThresh(1.0);                      //设置判断是否为离群点的阀值
+		sor.filter(*cloud_filtered);                    //存储
+		
+		//std::cerr << "Cloud after filtering: " << std::endl;
+		//std::cerr << *cloud_filtered << std::endl;
+		
+		//初始化点云显示工具
+		pcl::visualization::PCLVisualizer::Ptr viewer_fil(new pcl::visualization::PCLVisualizer("show"));
+		viewer_fil->setBackgroundColor(0.5, 0.5, 0.5);  //设置背景
+		viewer_fil->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
+		if (cloud_filtered->points.size() != 0) {
+			viewer_fil->removeAllPointClouds();
+			viewer_fil->removeAllShapes();
+			viewer_fil->addPointCloud<pcl::PointXYZ>(cloud_filtered, "origin_fil");  //显示滤波后点云
+			viewer_fil->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.25, "origin_cloud");  //设置点尺寸
+		}
+		viewer_fil->spinOnce();
+
 	}
 	depthReader->Release();        //释放不用的变量并且关闭感应器
 	colorReader->Release();

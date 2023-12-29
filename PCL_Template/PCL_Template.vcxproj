@@ -65,9 +65,9 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\..\vs_properties_sheet\OpenCV_Property_Sheet\Debug_x64_OpenCV_static.props" />
     <Import Project="..\..\vs_properties_sheet\kinect\KINECT_64_DEBUG_.props" />
     <Import Project="..\..\vs_properties_sheet\pcl\PCL_64_DEBUG.props" />
+    <Import Project="..\..\vs_properties_sheet\OpenCV_Property_Sheet\Debug_x64_OpenCV.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
