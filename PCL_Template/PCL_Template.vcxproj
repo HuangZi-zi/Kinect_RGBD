@@ -130,7 +130,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="my_region_growing.cpp" />
     <ClCompile Include="PCL_Template.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="main.h" />
+    <ClInclude Include="my_region_growing.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
