@@ -221,7 +221,7 @@ namespace pcl
           * color(it all depends on RNG). Points that were not listed in the indices array will have red color.
           */
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr
-            getColoredCloud();
+            mgetColoredCloud();
 
         /** \brief If the cloud was successfully segmented, then function
           * returns colored cloud. Otherwise it returns an empty pointer.
@@ -343,6 +343,11 @@ namespace pcl
     }
 }
 
+extern std::vector<unsigned char> colors;
+
+#define PCL_NO_PRECOMPILE
+
 #ifdef PCL_NO_PRECOMPILE
-#include <pcl/segmentation/impl/region_growing.hpp>
+//#include <pcl/segmentation/impl/region_growing.hpp>
+#include "my_region_growing.hpp"
 #endif

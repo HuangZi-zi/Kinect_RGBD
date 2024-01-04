@@ -52,6 +52,8 @@
 #include <cmath>
 #include <ctime>
 
+extern std::vector<unsigned char> colors;
+
  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT, typename NormalT>
 pcl::RegionGrowing<PointT, NormalT>::RegionGrowing() :
@@ -628,7 +630,7 @@ pcl::RegionGrowing<PointT, NormalT>::getSegmentFromPoint(pcl::index_t index, pcl
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT, typename NormalT> pcl::PointCloud<pcl::PointXYZRGB>::Ptr
-pcl::RegionGrowing<PointT, NormalT>::getColoredCloud()
+pcl::RegionGrowing<PointT, NormalT>::mgetColoredCloud()
 {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cloud;
 
@@ -637,13 +639,6 @@ pcl::RegionGrowing<PointT, NormalT>::getColoredCloud()
         colored_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
 
         srand(static_cast<unsigned int> (time(nullptr)));
-        std::vector<unsigned char> colors;
-        for (std::size_t i_segment = 0; i_segment < clusters_.size(); i_segment++)
-        {
-            colors.push_back(static_cast<unsigned char> (rand() % 256));
-            colors.push_back(static_cast<unsigned char> (rand() % 256));
-            colors.push_back(static_cast<unsigned char> (rand() % 256));
-        }
 
         colored_cloud->width = input_->width;
         colored_cloud->height = input_->height;

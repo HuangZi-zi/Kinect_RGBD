@@ -18,15 +18,15 @@
     <ClCompile Include="PCL_Template.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="my_region_growing.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="my_region_growing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="my_region_growing.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

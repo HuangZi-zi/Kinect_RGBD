@@ -33,3 +33,6 @@
 
 # vs folder
 /.vs/
+
+# pdb
+*.pdb

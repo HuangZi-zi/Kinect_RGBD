@@ -57,6 +57,8 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRG
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
 
+//色彩种子
+static std::vector<unsigned char> colors;
 
 void initKinect() {
     //获取Kinect
@@ -273,13 +275,21 @@ int  main(int argc, char** argv)
 
 	//点云显示工具
 	pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("show origin"));
-	viewer->setBackgroundColor(0, 0, 0);  //设置背景
-	viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
+	viewer->setBackgroundColor(255, 255, 255);  //设置背景
+	//viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
 	viewer->initCameraParameters();
 
 	//点云保存工具
 	pcl::PCDWriter writer;
 	pcl::PCDReader reader;
+
+	//随机色彩
+	for (std::size_t i_segment = 0; i_segment < depthHeight*depthWidth; i_segment++)
+	{
+		colors.push_back(static_cast<unsigned char> (rand() % 256));
+		colors.push_back(static_cast<unsigned char> (rand() % 256));
+		colors.push_back(static_cast<unsigned char> (rand() % 256));
+	}
 
 	//randomPointCloud();
 
@@ -297,7 +307,7 @@ int  main(int argc, char** argv)
 		// Create the filtering object
 		pcl::VoxelGrid<pcl::PointXYZ> vg;
 		vg.setInputCloud(cloud_xyz);
-		vg.setLeafSize(0.05f, 0.05f, 0.05f);
+		vg.setLeafSize(0.01f, 0.01f, 0.01f);
 		vg.filter(*cloud_filtered);
 
 		//去除离群点
@@ -305,7 +315,7 @@ int  main(int argc, char** argv)
 		////个点的距离超出了平均距离一个标准差以上，则该点被标记为离群点，并将它移除，存储起来
 		pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;   //创建滤波器对象
 		sor.setInputCloud(cloud_filtered);                           //设置待滤波的点云
-		sor.setMeanK(10);                               //设置在进行统计时考虑查询点临近点数
+		sor.setMeanK(20);                               //设置在进行统计时考虑查询点临近点数
 		sor.setStddevMulThresh(1.0);                      //设置判断是否为离群点的阀值
 		sor.filter(*cloud_filtered);                    //存储
 		
@@ -332,8 +342,8 @@ int  main(int argc, char** argv)
 		// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
 		pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
 		ne.setSearchMethod(tree);
-		// Use all neighbors in a sphere of radius 3cm
-		ne.setRadiusSearch(0.03);
+		// Use all neighbors in a sphere
+		ne.setRadiusSearch(0.10);
 		// Compute the features
 		ne.compute(*cloud_normals);
 
@@ -348,12 +358,12 @@ int  main(int argc, char** argv)
 		reg.setInputCloud(cloud_filtered);
 		reg.setIndices(p_indices);//去除了无数据的点的点云
 		reg.setInputNormals(cloud_normals);
-		reg.setSmoothnessThreshold(3.0 / 180.0 * M_PI);
+		reg.setSmoothnessThreshold(1.0 / 180.0 * M_PI);
 		reg.setCurvatureThreshold(1.0);
 
 		std::vector <pcl::PointIndices> clusters;
 		reg.extract(clusters);
-		pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud();
+		pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.mgetColoredCloud();
 		displayXYZRGBPointCloud(viewer, colored_cloud, "segmented");
 	}
 
