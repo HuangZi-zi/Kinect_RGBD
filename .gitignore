@@ -32,7 +32,9 @@
 *.app
 
 # vs folder
-/.vs/
+.vs/
+/bin/
+PCL_Template/x64/
 
 # pdb
 *.pdb

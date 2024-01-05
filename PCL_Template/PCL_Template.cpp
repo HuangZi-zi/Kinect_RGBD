@@ -5,17 +5,36 @@
 #include <thread>
 #include <time.h>
 #include <string.h>
+#include <mutex>
+#include <iomanip> // for setw, setfill
 
-#include "pcl/io/pcd_io.h"
 #include <pcl/point_types.h>
+//#include <vtkPlaneSource.h> 
+#include <pcl/ModelCoefficients.h>
+
+#include <pcl/io/pcd_io.h>
+
 #include <pcl/common/impl/io.hpp>
-#include <pcl/visualization/cloud_viewer.h>
 #include <pcl/common/transforms.h>
+
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+
+#include <pcl/visualization/cloud_viewer.h>
 #include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/filters/statistical_outlier_removal.h>
-#include <pcl/features/normal_3d.h>
-//#include <pcl/segmentation/region_growing.h>
+
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/extract_indices.h>
+
+#include <pcl/features/normal_3d.h>
+
+//#include <pcl/segmentation/region_growing.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+
+#include <pcl/search/kdtree.h>
+
 #include "my_region_growing.h"
 
 #include "Kinect.h"
@@ -56,9 +75,12 @@ cv::Mat depthRGB;
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>);
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
+pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 //色彩种子
 static std::vector<unsigned char> colors;
+
+std::mutex cloud_mutex;
 
 void initKinect() {
     //获取Kinect
@@ -268,32 +290,154 @@ void displayXYZRGBPointCloud(pcl::visualization::PCLVisualizer::Ptr viewer, pcl:
 	viewer->spinOnce();
 }
 
-int  main(int argc, char** argv)
+void region_growing(pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &out_cloud)
 {
-	//初始化Kinect
-	initKinect();
+	//Create the normal estimation class, and pass the input dataset to it
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	ne.setInputCloud(in_cloud);
+	// Output datasets
+	pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(new pcl::PointCloud<pcl::Normal>);
+	// Create an empty kdtree representation, and pass it to the normal estimation object.
+	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+	// Use all neighbors in a sphere
+	ne.setRadiusSearch(0.10);
+	// Compute the features
+	ne.compute(*cloud_normals);
 
-	//点云显示工具
-	pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("show origin"));
-	viewer->setBackgroundColor(255, 255, 255);  //设置背景
-	//viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
-	viewer->initCameraParameters();
+	pcl::IndicesPtr p_indices(new std::vector <int>);
+	pcl::removeNaNFromPointCloud(*in_cloud, *p_indices);
 
-	//点云保存工具
-	pcl::PCDWriter writer;
-	pcl::PCDReader reader;
+	pcl::RegionGrowing<pcl::PointXYZ, pcl::Normal> reg;
+	reg.setMinClusterSize(50);
+	reg.setMaxClusterSize(1000000);
+	reg.setSearchMethod(tree);
+	reg.setNumberOfNeighbours(10);
+	reg.setInputCloud(in_cloud);
+	reg.setIndices(p_indices);//去除了无数据的点的点云
+	reg.setInputNormals(cloud_normals);
+	reg.setSmoothnessThreshold(1.0 / 180.0 * M_PI);
+	reg.setCurvatureThreshold(0.5);
 
-	//随机色彩
-	for (std::size_t i_segment = 0; i_segment < depthHeight*depthWidth; i_segment++)
+	std::vector <pcl::PointIndices> clusters;
+	reg.extract(clusters);
+	out_cloud = reg.mgetColoredCloud();
+}
+
+//void planar_segmentation()
+//{
+//	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+//	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+//	// Create the segmentation object
+//	pcl::SACSegmentation<pcl::PointXYZ> seg;
+//	// Optional
+//	seg.setOptimizeCoefficients(true);
+//	// Mandatory
+//	seg.setModelType(pcl::SACMODEL_PLANE);
+//	seg.setMethodType(pcl::SAC_RANSAC);
+//	seg.setDistanceThreshold(0.05);
+//
+//	seg.setInputCloud(cloud_filtered);
+//	seg.segment(*inliers, *coefficients);
+//
+//	if (inliers->indices.size() == 0)
+//	{
+//		PCL_ERROR("Could not estimate a planar model for the given dataset.\n");
+//	}
+//
+//	float scale[2] = { 5,5 };//显示平面的大小
+//
+//	pcl::visualization::PCLVisualizer viewer("PCL visualizer");
+//	viewer.addPlane(*coefficients, 3, 3, 3, "plane", 0);
+//	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0.9, 0.1, 0.1, "plane_1", 0);
+//	viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_OPACITY, 0.6, "plane_1", 0);
+//	viewer.addPointCloud(cloud_filtered);
+//	viewer.setBackgroundColor(0.1, 0.1, 0.1, 0);
+//	viewer.setPosition(800, 400);
+//	while (!viewer.wasStopped())
+//	{
+//		viewer.spinOnce();
+//	}
+//}
+
+void euclidean_cluster()
+{
+	pcl::PointCloud<pcl::PointXYZ>::Ptr  cloud_temp(new pcl::PointCloud<pcl::PointXYZ>);
+
+	// Create the segmentation object for the planar model and set all the parameters
+	pcl::SACSegmentation<pcl::PointXYZ> seg;
+	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane(new pcl::PointCloud<pcl::PointXYZ>());
+
+	seg.setOptimizeCoefficients(true);
+	seg.setModelType(pcl::SACMODEL_PLANE);
+	seg.setMethodType(pcl::SAC_RANSAC);
+	seg.setMaxIterations(100);
+	seg.setDistanceThreshold(0.02);
+
+	int nr_points = (int)cloud_filtered->size();
+	while (cloud_filtered->size() > 0.3 * nr_points)
 	{
-		colors.push_back(static_cast<unsigned char> (rand() % 256));
-		colors.push_back(static_cast<unsigned char> (rand() % 256));
-		colors.push_back(static_cast<unsigned char> (rand() % 256));
+		// Segment the largest planar component from the remaining cloud
+		seg.setInputCloud(cloud_filtered);
+		seg.segment(*inliers, *coefficients);
+		if (inliers->indices.size() == 0)
+		{
+			std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
+			break;
+		}
+
+		// Extract the planar inliers from the input cloud
+		pcl::ExtractIndices<pcl::PointXYZ> extract;
+		extract.setInputCloud(cloud_filtered);
+		extract.setIndices(inliers);
+		extract.setNegative(false);
+
+		// Get the points associated with the planar surface
+		extract.filter(*cloud_plane);
+		//std::cout << "PointCloud representing the planar component: " << cloud_plane->size() << " data points." << std::endl;
+
+		// Remove the planar inliers, extract the rest
+		extract.setNegative(true);
+		extract.filter(*cloud_temp);
+		*cloud_filtered = *cloud_temp;
 	}
 
-	//randomPointCloud();
+	// Creating the KdTree object for the search method of the extraction
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+	tree->setInputCloud(cloud_filtered);
 
-	//while (cloud_xyz->points.size() == 0)
+	std::vector<pcl::PointIndices> cluster_indices;
+	pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+	ec.setClusterTolerance(0.02); // 2cm
+	ec.setMinClusterSize(100);
+	ec.setMaxClusterSize(25000);
+	ec.setSearchMethod(tree);
+	ec.setInputCloud(cloud_filtered);
+	ec.extract(cluster_indices);
+
+	int j = 0;
+	for (const auto& cluster : cluster_indices)
+	{
+		pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
+		for (const auto& idx : cluster.indices) {
+			cloud_cluster->push_back((*cloud_filtered)[idx]);
+		} //*
+		cloud_cluster->width = cloud_cluster->size();
+		cloud_cluster->height = 1;
+		cloud_cluster->is_dense = true;
+
+		std::cout << "PointCloud representing the Cluster: " << cloud_cluster->size() << " data points." << std::endl;
+		std::stringstream ss;
+		ss << std::setw(4) << std::setfill('0') << j;
+		j++;
+	}
+}
+
+void filteringThread()
+{
 	while (true)
 	{
 		getPointCloud();
@@ -307,32 +451,29 @@ int  main(int argc, char** argv)
 		// Create the filtering object
 		pcl::VoxelGrid<pcl::PointXYZ> vg;
 		vg.setInputCloud(cloud_xyz);
-		vg.setLeafSize(0.01f, 0.01f, 0.01f);
+		vg.setLeafSize(0.05f, 0.05f, 0.05f);
+		std::lock_guard<std::mutex> lock(cloud_mutex);
 		vg.filter(*cloud_filtered);
-
 		//去除离群点
 		//// 创建滤波器，对每个点分析的临近点的个数设置为50 ，并将标准差的倍数设置为1  这意味着如果一
 		////个点的距离超出了平均距离一个标准差以上，则该点被标记为离群点，并将它移除，存储起来
 		pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;   //创建滤波器对象
 		sor.setInputCloud(cloud_filtered);                           //设置待滤波的点云
-		sor.setMeanK(20);                               //设置在进行统计时考虑查询点临近点数
+		sor.setMeanK(40);                               //设置在进行统计时考虑查询点临近点数
 		sor.setStddevMulThresh(1.0);                      //设置判断是否为离群点的阀值
 		sor.filter(*cloud_filtered);                    //存储
-		
-		//displayXYZPointCloud(viewer,cloud_filtered, "cloud_filtered");
-		/*int key = cv::waitKey(1); 
-		if (key != -1)
-		{*/
-			//std::string u_time = std::to_string(time(nullptr));
-			//std::string filename1 = "C:/Users/YawnFun/Pictures/Camera Roll/snapshot_origin" + u_time + ".pcd";
-			//std::string filename2 = "C:/Users/YawnFun/Pictures/Camera Roll/snapshot_filtered" + u_time + ".pcd";
-			//writer.write<pcl::PointXYZ>(filename1, *cloud_xyz, false);
-			//writer.write<pcl::PointXYZ>(filename2, *cloud_filtered, false);
-			//std::cout << "snap succeed" << std::endl;
-			//key = false;
-		//}
+	}
+}
 
-		//邻域生长法的平面特征提取
+void featureExtractionThread()
+{
+	while (true)
+	{
+		if (cloud_filtered->points.size() == 0)
+		{
+			cv::waitKey(100);
+			continue;
+		}
 		//Create the normal estimation class, and pass the input dataset to it
 		pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
 		ne.setInputCloud(cloud_filtered);
@@ -363,8 +504,104 @@ int  main(int argc, char** argv)
 
 		std::vector <pcl::PointIndices> clusters;
 		reg.extract(clusters);
-		pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.mgetColoredCloud();
+		std::lock_guard<std::mutex> lock(cloud_mutex);
+		colored_cloud = reg.mgetColoredCloud();
+	}
+}
+
+void visualizationThread()
+{
+	while (true)
+	{
+		if (colored_cloud->points.size() == 0)
+		{
+			cv::waitKey(100);
+			continue;
+		}
+		//点云显示工具
+		pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("show origin"));
+		viewer->setBackgroundColor(255, 255, 255);  //设置背景
+		//viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
+		viewer->initCameraParameters();
+		//点云可视化
+		if (colored_cloud->points.size() != 0) {
+			viewer->removeAllPointClouds();
+			viewer->removeAllShapes();
+			viewer->addPointCloud<pcl::PointXYZRGB>(colored_cloud, "name");  //显示原始点云
+			viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.25, "name");  //设置点尺寸
+		}
+		viewer->spinOnce();
+	}
+	
+}
+
+int  main(int argc, char** argv)
+{
+	//初始化Kinect
+	initKinect();
+
+	//点云保存工具
+	pcl::PCDWriter writer;
+	pcl::PCDReader reader;
+
+	//随机色彩
+	for (std::size_t i_segment = 0; i_segment < depthHeight*depthWidth; i_segment++)
+	{
+		colors.push_back(static_cast<unsigned char> (rand() % 256));
+		colors.push_back(static_cast<unsigned char> (rand() % 256));
+		colors.push_back(static_cast<unsigned char> (rand() % 256));
+	}
+
+	//点云显示工具
+	pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("show origin"));
+	viewer->setBackgroundColor(255, 255, 255);  //设置背景
+	//viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
+	viewer->initCameraParameters();
+
+	//randomPointCloud();
+
+
+	//while (cloud_xyz->points.size() == 0)
+	while (true)
+	{
+		//displayXYZPointCloud(viewer,cloud_filtered, "cloud_filtered");
+		/*int key = cv::waitKey(1); 
+		if (key != -1)
+		{*/
+			//std::string u_time = std::to_string(time(nullptr));
+			//std::string filename1 = "C:/Users/YawnFun/Pictures/Camera Roll/snapshot_origin" + u_time + ".pcd";
+			//std::string filename2 = "C:/Users/YawnFun/Pictures/Camera Roll/snapshot_filtered" + u_time + ".pcd";
+			//writer.write<pcl::PointXYZ>(filename1, *cloud_xyz, false);
+			//writer.write<pcl::PointXYZ>(filename2, *cloud_filtered, false);
+			//std::cout << "snap succeed" << std::endl;
+			//key = false;
+		//}
+
+		getPointCloud();
+
+		//降采样
+		// Create the filtering object
+		pcl::VoxelGrid<pcl::PointXYZ> vg;
+		vg.setInputCloud(cloud_xyz);
+		vg.setLeafSize(0.01f, 0.01f, 0.01f);
+		vg.filter(*cloud_filtered);
+		//去除离群点
+		//// 创建滤波器，对每个点分析的临近点的个数设置为50 ，并将标准差的倍数设置为1  这意味着如果一
+		////个点的距离超出了平均距离一个标准差以上，则该点被标记为离群点，并将它移除，存储起来
+		pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;   //创建滤波器对象
+		sor.setInputCloud(cloud_filtered);                           //设置待滤波的点云
+		sor.setMeanK(10);                               //设置在进行统计时考虑查询点临近点数
+		sor.setStddevMulThresh(3.0);                      //设置判断是否为离群点的阀值
+		sor.filter(*cloud_filtered);                    //存储
+
+		//邻域生长法的平面特征提取
+		region_growing(cloud_filtered, colored_cloud);
+		std::cout << "size of outcome: " << colored_cloud->width * colored_cloud->height<<std::endl;
 		displayXYZRGBPointCloud(viewer, colored_cloud, "segmented");
+		//std::cout << colored_cloud->at(1, 1)<<endl;
+		
+		//平面拟合
+		//planar_segmentation();
 	}
 
 	//depthReader->Release();        //释放不用的变量并且关闭感应器
@@ -378,8 +615,18 @@ int  main(int argc, char** argv)
 	//	viewer->spinOnce(100);
 	//	cv::waitKey(100);
 	//}
-	std::cin.get();
-			return 0;
+
+
+	//std::thread filtering_thread(filteringThread);
+	//std::thread feature_extraction_thread(featureExtractionThread);
+	//std::thread visualization_thread(visualizationThread);
+
+	//filtering_thread.join();
+	//feature_extraction_thread.join();
+	//visualization_thread.join();
+
+	//std::cin.get();
+	return 0;
 }
 
 
@@ -394,3 +641,4 @@ int  main(int argc, char** argv)
 //   4. Use the Error List window to view errors
 //   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
 //   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+
