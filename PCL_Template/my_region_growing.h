@@ -345,9 +345,11 @@ namespace pcl
 
 extern std::vector<unsigned char> colors;
 
-#define PCL_NO_PRECOMPILE
+//#define PCL_NO_PRECOMPILE
 
 #ifdef PCL_NO_PRECOMPILE
 //#include <pcl/segmentation/impl/region_growing.hpp>
-#include "my_region_growing.hpp"
+
 #endif
+
+#include "my_region_growing.hpp"
