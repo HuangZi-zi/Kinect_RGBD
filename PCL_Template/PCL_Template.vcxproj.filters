@@ -23,6 +23,12 @@
     <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="my_region_growing_rgb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="my_region_growing_rgb.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="my_region_growing.h">
       <Filter>Header Files</Filter>
     </ClInclude>

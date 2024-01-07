@@ -14,6 +14,7 @@
 
 #include <pcl/common/impl/io.hpp>
 #include <pcl/common/transforms.h>
+#include<pcl/common/common_headers.h>
 
 #include <pcl/console/parse.h>
 
@@ -29,7 +30,7 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 
-//#include <pcl/segmentation/region_growing.h>
+//#include <pcl/segmentation/region_growing_rgb.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 
@@ -41,7 +42,7 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/visualization/range_image_visualizer.h>
 
-#include "my_region_growing.h"
+#include "my_region_growing_rgb.h"
 
 #include "Kinect.h"
 #include <opencv2/opencv.hpp>
@@ -87,11 +88,12 @@ pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud(new pcl::PointCloud<pcl::P
 static std::vector<unsigned char> colors;
 
 //点云显示工具
-//pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("show origin"));
+pcl::visualization::PCLVisualizer::Ptr p_viewer(new pcl::visualization::PCLVisualizer("show origin"));
+//pcl::visualization::PCLVisualizer viewer("3D Viewer");
 
 //深度图显示工具
 //pcl::visualization::RangeImageVisualizer range_image_widget("Range image");
-pcl::visualization::RangeImageVisualizer range_image_borders_widget("with border");
+//pcl::visualization::RangeImageVisualizer range_image_borders_widget("with border");
 
 std::mutex cloud_mutex;
 
@@ -174,7 +176,7 @@ void getPointCloud()
 	reader->AcquireLatestFrame(&frame);
 	if (frame==nullptr)
 	{
-		std::cout << "empty frame!" << std::endl;
+		std::cout << "empty frame! [read]" << std::endl;
 		return;
 	}
 	//获取深度图
@@ -286,9 +288,7 @@ void randomPointCloud()
 
 void displayXYZPointCloud(pcl::visualization::PCLVisualizer::Ptr viewer, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, std::string name)
 {
-	viewer->setBackgroundColor(0.5, 0.5, 0.5);  //设置背景
-	//viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
-	viewer->initCameraParameters();
+	
 	//点云可视化
 	if (cloud->points.size() != 0) {
 		viewer->removeAllPointClouds();
@@ -301,9 +301,6 @@ void displayXYZPointCloud(pcl::visualization::PCLVisualizer::Ptr viewer, pcl::Po
 
 void displayXYZRGBPointCloud(pcl::visualization::PCLVisualizer::Ptr viewer, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string name)
 {
-	viewer->setBackgroundColor(255, 255, 255);  //设置背景
-	//viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
-	viewer->initCameraParameters();
 	//点云可视化
 	if (cloud->points.size() != 0) {
 		viewer->removeAllPointClouds();
@@ -346,7 +343,61 @@ void region_growing(pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud, pcl::PointClou
 
 	std::vector <pcl::PointIndices> clusters;
 	reg.extract(clusters);
-	out_cloud = reg.mgetColoredCloud();
+	out_cloud = reg.getColoredCloud();
+}
+
+void region_growing_rgb(pcl::PointCloud<pcl::PointXYZRGB>::Ptr in_cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr& out_cloud)
+{
+	// Create the region growing RGB object
+	pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
+	reg.setInputCloud(in_cloud);
+	reg.setMinClusterSize(100); // Set minimum cluster size (adjust as needed)
+	reg.setMaxClusterSize(10000); // Set maximum cluster size (adjust as needed)
+	reg.setSearchMethod(pcl::search::Search<pcl::PointXYZRGB>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGB>));
+
+	// Set the parameters for region growing
+	reg.setNumberOfNeighbours(30);
+	reg.setSmoothnessThreshold(3.0 / 180.0 * M_PI); // Set the smoothness threshold (adjust as needed)
+	reg.setCurvatureThreshold(1.0); // Set the curvature threshold (adjust as needed)
+
+	// Starting from the middle of the bottom
+	cloud->width = depthWidth;
+	cloud->height = depthHeight;
+	pcl::PointXYZRGB seed_point = cloud->at(cloud->width / 2, 0);
+	reg.setPointColorThreshold(10); // Set the color threshold (adjust as needed)
+	reg.setRegionColorThreshold(5); // Set the region color threshold (adjust as needed)
+
+	// Create a placeholder for normals (required for the region growing algorithm)
+	pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+	// Assuming you have computed normals for your input cloud and stored them in 'normals'
+	// You may need to replace the next line with the actual method to compute normals
+	pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normal_estimator;
+	normal_estimator.setInputCloud(cloud);
+	normal_estimator.setSearchMethod(pcl::search::Search<pcl::PointXYZRGB>::Ptr(new pcl::search::KdTree<pcl::PointXYZRGB>));
+	normal_estimator.setKSearch(50); // Set the number of neighbors to consider for normal estimation
+	normal_estimator.compute(*normals);
+
+	// Set the input normals to the region growing object
+	reg.setInputNormals(normals);
+
+	// Perform region growing
+	std::vector<pcl::PointIndices> clusters;
+	reg.extract(clusters);
+
+	// Extract the ground cluster
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr ground(new pcl::PointCloud<pcl::PointXYZRGB>);
+	for (const auto& cluster : clusters) {
+		if (std::find(cluster.indices.begin(), cluster.indices.end(), cloud->width / 2) != cluster.indices.end()) {
+			pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+			extract.setInputCloud(cloud);
+			pcl::PointIndices::Ptr inliers(new pcl::PointIndices(cluster));
+			extract.setIndices(inliers);
+			extract.setNegative(false);
+			extract.filter(*ground);
+			break; // Assuming there's only one ground cluster containing the seed point
+		}
+	}
+	displayXYZRGBPointCloud(p_viewer, ground, "name");
 }
 
 //void planar_segmentation()
@@ -387,6 +438,7 @@ void region_growing(pcl::PointCloud<pcl::PointXYZ>::Ptr in_cloud, pcl::PointClou
 
 void euclidean_cluster(pcl::visualization::PCLVisualizer::Ptr viewer)
 {
+	//cloud_filtered = cloud_xyz;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr  cloud_temp(new pcl::PointCloud<pcl::PointXYZ>);
 
 	// Create the segmentation object for the planar model and set all the parameters
@@ -462,9 +514,10 @@ void euclidean_cluster(pcl::visualization::PCLVisualizer::Ptr viewer)
 
 	//提取最大的cluster
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
-	for (const auto& idx : cluster_indices[0].indices) {
+	for (const auto& idx : cluster_indices[0].indices) 
+	{
 		cloud_cluster->push_back((*cloud_filtered)[idx]);
-	} //*
+	} 
 	//cloud_cluster->width = cloud_cluster->size();
 	//cloud_cluster->height = 1;
 	//cloud_cluster->is_dense = true;
@@ -541,7 +594,7 @@ void featureExtractionThread()
 		std::vector <pcl::PointIndices> clusters;
 		reg.extract(clusters);
 		std::lock_guard<std::mutex> lock(cloud_mutex);
-		colored_cloud = reg.mgetColoredCloud();
+		colored_cloud = reg.getColoredCloud();
 	}
 }
 
@@ -571,61 +624,61 @@ void visualizationThread()
 	
 }
 
-void borderExtraction()
-{
-	float angularResolution = (float)(1.0f * (M_PI / 180.0f));  //   1.0 degree in radians
-	float maxAngleWidth = (float)(180.0f * (M_PI / 180.0f));  // 360.0 degree in radians
-	float maxAngleHeight = (float)(180.0f * (M_PI / 180.0f));  // 180.0 degree in radians
-	Eigen::Affine3f sensorPose = (Eigen::Affine3f)Eigen::Translation3f(1.0f, 1.0f, 1.0f);
-	pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
-	float noiseLevel = 0.00;
-	float minRange = 0.0f;
-	int borderSize = 1;
-
-	pcl::RangeImage rangeImage;
-	rangeImage.createFromPointCloud(*cloud_filtered, angularResolution, maxAngleWidth, maxAngleHeight,
-		sensorPose, coordinate_frame, noiseLevel, minRange, borderSize);
-
-	rangeImage.setUnseenToMaxRange();//没有数据的点认定为最大值
-	// Extract borders
-	pcl::RangeImageBorderExtractor border_extractor(&rangeImage);
-	pcl::PointCloud<pcl::BorderDescription> border_descriptions;
-	border_extractor.compute(border_descriptions);
-	// Show points in 3D viewer
-	/*pcl::PointCloud<pcl::PointWithRange>::Ptr border_points_ptr(new pcl::PointCloud<pcl::PointWithRange>),
-		veil_points_ptr(new pcl::PointCloud<pcl::PointWithRange>),
-		shadow_points_ptr(new pcl::PointCloud<pcl::PointWithRange>);
-	pcl::PointCloud<pcl::PointWithRange>& border_points = *border_points_ptr,
-		& veil_points = *veil_points_ptr,
-		& shadow_points = *shadow_points_ptr;
-	for (int y = 0; y < (int)range_image.height; ++y)
-	{
-		for (int x = 0; x < (int)range_image.width; ++x)
-		{
-			if (border_descriptions[y * range_image.width + x].traits[pcl::BORDER_TRAIT__OBSTACLE_BORDER])
-				border_points.push_back(range_image[y * range_image.width + x]);
-			if (border_descriptions[y * range_image.width + x].traits[pcl::BORDER_TRAIT__VEIL_POINT])
-				veil_points.push_back(range_image[y * range_image.width + x]);
-			if (border_descriptions[y * range_image.width + x].traits[pcl::BORDER_TRAIT__SHADOW_BORDER])
-				shadow_points.push_back(range_image[y * range_image.width + x]);
-		}
-	}
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> border_points_color_handler(border_points_ptr, 0, 255, 0);
-	viewer.addPointCloud<pcl::PointWithRange>(border_points_ptr, border_points_color_handler, "border points");
-	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "border points");
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> veil_points_color_handler(veil_points_ptr, 255, 0, 0);
-	viewer.addPointCloud<pcl::PointWithRange>(veil_points_ptr, veil_points_color_handler, "veil points");
-	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "veil points");
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> shadow_points_color_handler(shadow_points_ptr, 0, 255, 255);
-	viewer.addPointCloud<pcl::PointWithRange>(shadow_points_ptr, shadow_points_color_handler, "shadow points");
-	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "shadow points");*/
-
-	range_image_borders_widget.visualizeBorders(rangeImage, -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), false,
-		border_descriptions);
-
-	range_image_borders_widget.spinOnce();
-	
-}
+//void borderExtraction()
+//{
+//	float angularResolution = (float)(1.0f * (M_PI / 180.0f));  //   1.0 degree in radians
+//	float maxAngleWidth = (float)(180.0f * (M_PI / 180.0f));  // 360.0 degree in radians
+//	float maxAngleHeight = (float)(180.0f * (M_PI / 180.0f));  // 180.0 degree in radians
+//	Eigen::Affine3f sensorPose = (Eigen::Affine3f)Eigen::Translation3f(1.0f, 1.0f, 1.0f);
+//	pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
+//	float noiseLevel = 0.00;
+//	float minRange = 0.0f;
+//	int borderSize = 1;
+//
+//	pcl::RangeImage rangeImage;
+//	rangeImage.createFromPointCloud(*cloud_filtered, angularResolution, maxAngleWidth, maxAngleHeight,
+//		sensorPose, coordinate_frame, noiseLevel, minRange, borderSize);
+//
+//	rangeImage.setUnseenToMaxRange();//没有数据的点认定为最大值
+//	// Extract borders
+//	pcl::RangeImageBorderExtractor border_extractor(&rangeImage);
+//	pcl::PointCloud<pcl::BorderDescription> border_descriptions;
+//	border_extractor.compute(border_descriptions);
+//	// Show points in 3D viewer
+//	/*pcl::PointCloud<pcl::PointWithRange>::Ptr border_points_ptr(new pcl::PointCloud<pcl::PointWithRange>),
+//		veil_points_ptr(new pcl::PointCloud<pcl::PointWithRange>),
+//		shadow_points_ptr(new pcl::PointCloud<pcl::PointWithRange>);
+//	pcl::PointCloud<pcl::PointWithRange>& border_points = *border_points_ptr,
+//		& veil_points = *veil_points_ptr,
+//		& shadow_points = *shadow_points_ptr;
+//	for (int y = 0; y < (int)range_image.height; ++y)
+//	{
+//		for (int x = 0; x < (int)range_image.width; ++x)
+//		{
+//			if (border_descriptions[y * range_image.width + x].traits[pcl::BORDER_TRAIT__OBSTACLE_BORDER])
+//				border_points.push_back(range_image[y * range_image.width + x]);
+//			if (border_descriptions[y * range_image.width + x].traits[pcl::BORDER_TRAIT__VEIL_POINT])
+//				veil_points.push_back(range_image[y * range_image.width + x]);
+//			if (border_descriptions[y * range_image.width + x].traits[pcl::BORDER_TRAIT__SHADOW_BORDER])
+//				shadow_points.push_back(range_image[y * range_image.width + x]);
+//		}
+//	}
+//	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> border_points_color_handler(border_points_ptr, 0, 255, 0);
+//	viewer.addPointCloud<pcl::PointWithRange>(border_points_ptr, border_points_color_handler, "border points");
+//	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "border points");
+//	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> veil_points_color_handler(veil_points_ptr, 255, 0, 0);
+//	viewer.addPointCloud<pcl::PointWithRange>(veil_points_ptr, veil_points_color_handler, "veil points");
+//	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "veil points");
+//	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> shadow_points_color_handler(shadow_points_ptr, 0, 255, 255);
+//	viewer.addPointCloud<pcl::PointWithRange>(shadow_points_ptr, shadow_points_color_handler, "shadow points");
+//	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "shadow points");*/
+//
+//	range_image_borders_widget.visualizeBorders(rangeImage, -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(), false,
+//		border_descriptions);
+//
+//	range_image_borders_widget.spinOnce();
+//	
+//}
 
 int  main(int argc, char** argv)
 {
@@ -644,6 +697,12 @@ int  main(int argc, char** argv)
 		colors.push_back(static_cast<unsigned char> (rand() % 256));
 	}
 
+	//点云可视化设置
+	p_viewer->setBackgroundColor(0.5, 0.5, 0.5);  //设置背景
+	p_viewer->addCoordinateSystem(1, "Base_link");  //设置坐标轴尺寸
+	//p_viewer->initCameraParameters();
+	//viewer.setBackgroundColor(1, 1, 1);
+	
 	//randomPointCloud();
 
 	//while (cloud_xyz->points.size() == 0)
@@ -666,17 +725,20 @@ int  main(int argc, char** argv)
 
 		if (cloud_xyz->points.size() == 0)
 		{
+			std::cout << "empty frame! [main]" << endl;
 			cv::waitKey(100);
 			continue;
 		}
-
+		//displayXYZRGBPointCloud(p_viewer, cloud, "name");
+		//std::cout << "size of point cloud: " << cloud_xyz->points.size() << std::endl;
+		
 		//降采样
 		// Create the filtering object
-		pcl::VoxelGrid<pcl::PointXYZ> vg;
-		vg.setInputCloud(cloud_xyz);
-		vg.setLeafSize(0.05f, 0.05f, 0.05f);
-		vg.filter(*cloud_filtered);
-		//去除离群点
+		//pcl::VoxelGrid<pcl::PointXYZ> vg;
+		//vg.setInputCloud(cloud_xyz);
+		//vg.setLeafSize(0.05f, 0.05f, 0.05f);
+		//vg.filter(*cloud_filtered);
+		////去除离群点
 		//// 创建滤波器，对每个点分析的临近点的个数设置为50 ，并将标准差的倍数设置为1  这意味着如果一
 		////个点的距离超出了平均距离一个标准差以上，则该点被标记为离群点，并将它移除，存储起来
 		//pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;   //创建滤波器对象
@@ -690,37 +752,59 @@ int  main(int argc, char** argv)
 		//std::cout << "size of outcome: " << colored_cloud->width * colored_cloud->height<<std::endl;
 		//displayXYZRGBPointCloud(viewer, colored_cloud, "segmented");
 		//std::cout << colored_cloud->at(1, 1)<<endl;
-		
+		region_growing_rgb(cloud, colored_cloud);
+
 		//平面拟合
 		//planar_segmentation();
 
 		//聚类分析
-		//euclidean_cluster();
+		//euclidean_cluster(p_viewer);
 
 		//displayXYZPointCloud(viewer, cloud_filtered, "filtered");
 
 		//点云转为深度图
 		// We now want to create a range image from the above point cloud, with a 1deg angular resolution
-		//float angularResolution = (float)(1.0f * (M_PI / 180.0f));  //   1.0 degree in radians
-		//float maxAngleWidth = (float)(180.0f * (M_PI / 180.0f));  // 360.0 degree in radians
-		//float maxAngleHeight = (float)(180.0f * (M_PI / 180.0f));  // 180.0 degree in radians
+		//float angularResolution = (float)(0.5f * (M_PI / 180.0f));  //   1.0 degree in radians
+		//float maxAngleWidth = (float)(70.0f * (M_PI / 180.0f));  // 360.0 degree in radians
+		//float maxAngleHeight = (float)(60.0f * (M_PI / 180.0f));  // 180.0 degree in radians
 		//Eigen::Affine3f sensorPose = (Eigen::Affine3f)Eigen::Translation3f(0.0f, 0.0f, 0.0f);
 		//pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
 		//float noiseLevel = 0.00;
 		//float minRange = 0.0f;
 		//int borderSize = 1;
 
-		//pcl::RangeImage rangeImage;
-		//rangeImage.createFromPointCloud(*cloud_filtered, angularResolution, maxAngleWidth, maxAngleHeight,
+		//pcl::RangeImage::Ptr p_rangeImage(new pcl::RangeImage);
+		//pcl::RangeImage& rangeImage= *p_rangeImage;
+		//rangeImage.createFromPointCloud(*cloud_xyz, angularResolution, maxAngleWidth, maxAngleHeight,
 		//	sensorPose, coordinate_frame, noiseLevel, minRange, borderSize);
 
 		////以图像的形式显示深度图像，深度值作为颜色显示
-		//range_image_widget.showRangeImage(rangeImage);
-		//range_image_widget.spinOnce();
+		//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> range_image_color_handler(p_rangeImage, 0, 0, 0);
+		//
+		////range_image_widget.showRangeImage(rangeImage);
+		////range_image_widget.spinOnce();
+		//
+		//Eigen::Vector3f pos_vector = rangeImage.getTransformationToWorldSystem() * Eigen::Vector3f(0, 0, 0);
+		//Eigen::Vector3f look_at_vector = rangeImage.getTransformationToWorldSystem().rotation() * Eigen::Vector3f(0, 0, 1) + pos_vector;
+		//Eigen::Vector3f up_vector = rangeImage.getTransformationToWorldSystem().rotation() * Eigen::Vector3f(0, -1, 0);
+
+		//viewer.setCameraPosition(
+		//	pos_vector[0], pos_vector[1], pos_vector[2],
+		//	look_at_vector[0], look_at_vector[1], look_at_vector[2],
+		//	up_vector[0], up_vector[1], up_vector[2]);
+
+		//if (rangeImage.size() != 0) {
+		//	viewer.removeAllPointClouds();
+		//	viewer.removeAllShapes();
+		//	viewer.addPointCloud(p_rangeImage, range_image_color_handler, "range image");
+		//	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "range image");
+		//}
+		//viewer.spinOnce();
+
 		//cout << "range Image refresh!" << endl;
 
 		//边缘检测
-		borderExtraction();
+		//borderExtraction();
 	}
 
 	//depthReader->Release();        //释放不用的变量并且关闭感应器

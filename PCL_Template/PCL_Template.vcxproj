@@ -136,6 +136,8 @@
     <ClInclude Include="main.h" />
     <ClInclude Include="my_region_growing.h" />
     <ClInclude Include="my_region_growing.hpp" />
+    <ClInclude Include="my_region_growing_rgb.h" />
+    <ClInclude Include="my_region_growing_rgb.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
