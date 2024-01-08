@@ -220,15 +220,17 @@ void getPointCloud()
 				depthToRGB.data[i * 4 + 1] = color_img.data[(colorY * 1920 + colorX) * 4 + 1];
 				depthToRGB.data[i * 4 + 2] = color_img.data[(colorY * 1920 + colorX) * 4 + 2];
 				depthToRGB.data[i * 4 + 3] = color_img.data[(colorY * 1920 + colorX) * 4 + 3];
-				depthRGB.data[i * 3] = color_img.data[(colorY * 1920 + colorX) * 4];
-				depthRGB.data[i * 3 + 1] = color_img.data[(colorY * 1920 + colorX) * 4 + 1];
-				depthRGB.data[i * 3 + 2] = color_img.data[(colorY * 1920 + colorX) * 4 + 2];
+				//depthRGB.data[i * 4] = color_img.data[(colorY * 1920 + colorX) * 4];
+				//depthRGB.data[i * 4 + 1] = color_img.data[(colorY * 1920 + colorX) * 4 + 1];
+				//depthRGB.data[i * 4 + 2] = color_img.data[(colorY * 1920 + colorX) * 4 + 2];
+				//depthRGB.data[i * 4 + 3] = depth_img.data[i];
 			}
 		}
 		else {
-			depthRGB.data[i * 3] = 0;
-			depthRGB.data[i * 3 + 1] = 0;
-			depthRGB.data[i * 3 + 2] = 0;
+			//depthRGB.data[i * 4] = 0;
+			//depthRGB.data[i * 4 + 1] = 0;
+			//depthRGB.data[i * 4 + 2] = 0;
+			//depthRGB.data[i * 4 + 3] = 0;
 		}
 	}
 	//转点云
@@ -723,12 +725,17 @@ int  main(int argc, char** argv)
 
 		getPointCloud();
 
-		if (cloud_xyz->points.size() == 0)
+		//if (cloud_xyz->points.size() == 0)
+		if (depthToRGB.empty())
 		{
 			std::cout << "empty frame! [main]" << endl;
 			cv::waitKey(100);
+
 			continue;
 		}
+		cv::imshow("depthToRGB", depthToRGB);
+		//cv::imshow("depthRGB", depthRGB);
+		cv::waitKey(30);
 		//displayXYZRGBPointCloud(p_viewer, cloud, "name");
 		//std::cout << "size of point cloud: " << cloud_xyz->points.size() << std::endl;
 		
@@ -752,7 +759,7 @@ int  main(int argc, char** argv)
 		//std::cout << "size of outcome: " << colored_cloud->width * colored_cloud->height<<std::endl;
 		//displayXYZRGBPointCloud(viewer, colored_cloud, "segmented");
 		//std::cout << colored_cloud->at(1, 1)<<endl;
-		region_growing_rgb(cloud, colored_cloud);
+		//region_growing_rgb(cloud, colored_cloud);
 
 		//平面拟合
 		//planar_segmentation();
